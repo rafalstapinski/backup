@@ -7,6 +7,7 @@ import time
 import web
 import logging
 import random
+from config import conf
 
 
 # def path_to_dict(path):
@@ -30,45 +31,78 @@ import random
 # r = requests.post(url, files=f)
 #
 
-path = os.path.dirname(os.path.realpath(__file__))
-logging.basicConfig(filename="default.log", level=logging.DEBUG)
+def write(payload, status):
+    return json.dumps({"payload": payload, "status": status})
 
-try:
-	config = {}
-	execfile("%s/default.conf" % path, config)
+def notfound():
+    return web.notfound("404")
+
+def new_request(request):
+    web.header("Content-Type", "application/json")
+    web.header("Access-Control-Allow-Origin", "*")
+	# web.header("charset", "utf-8")
+
+class backup_begin:
+	def POST(self):
+		new_request(self)
+
+		backup_structure = []
+
+		for d in conf.backup_dirs:
+			#backup_structure.append(path_to_dict(config["backup_dirs"][d]))
+			print d
+
+urls = (
+	"/backup/begin", "backup_begin"
+)
+
+
+
+if __name__ == "__main__":
+
+	path = os.path.dirname(os.path.realpath(__file__))
+	logging.basicConfig(filename="default.log", level=logging.DEBUG)
 
 	try:
-		user_hash = config["user_hash"]
-	except KeyError:
-		f = open("%s/default.conf" % path, "a")
+		user_hash = conf.user_hash
+
+	except AttributeError:
+
+		f = open("%s/config.py" % path, "a")
 		user_hash = "%064x" % random.getrandbits(256)
-		f.write("user_hash = \"%s\"\n" % user_hash)
+		f.write("\tuser_hash = \"%s\"\n" % user_hash)
 		f.close()
 
 	try:
+
 		my_ip = requests.get('http://jsonip.com').json()
-		print my_ip["ip"]
+		#for some reason referencing ["ip"] in above doesn't work
 		my_port = "18563"
-		f = open("%s/default.conf" % path, "a")
-		f.write("my_ip = \"&s\"\n" % my_ip)
-		f.write("my_port = \"%s\"\n" % my_port)
-		f.close()
+		# f = open("%s/default.conf" % path, "a")
+		# f.write("my_ip = \"%s\"\n" % my_ip)
+		# f.write("my_port = \"%s\"\n" % my_port)
+		# f.close()
 
 		try:
-			print config["server_ip"]
-			r = requests.post("%s/user/register" % config["server_ip"], data = {"user_hash": user_hash, "agent_ip": "%s:%s" % (my_ip, my_port)})
+
+			my_ip["ip"] = "http://localhost"
+
+			#overwrite for testing since behind proxy and all
+
+			requests.post("%s/user/register" % conf.server_ip, data = {"user_hash": user_hash, "agent_ip": "%s:%s" % (my_ip["ip"], my_port)})
+
 		except Exception as e:
+
 			print e
 
 	except Exception as e:
-		logging.critical("Could not get public IP. ")
-        exit()
+		#for some reason this is causing program to exit, but isn't printing or logging
+		# logging.critical("Could not get public IP. ")
+		# print "could not get public ip"
+        # exit()
 
-except IOError as e:
-	logging.critical("Could not find config file default.conf in same directory. ")
-	exit()
+		pass
 
-if __name__ == "__main__":
 
 	app = web.application(urls, globals())
 	app.notfound = notfound
