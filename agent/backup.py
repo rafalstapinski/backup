@@ -8,28 +8,24 @@ import web
 import logging
 import random
 from config import conf
+import hashlib
 
+def md5(fname):
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
-# def path_to_dict(path):
-#     d = {'n': os.path.basename(path)}
-#     # path
-#     if os.path.isdir(path):
-#         d['t'] = "d"
-#         d['c'] = [path_to_dict(os.path.join(path,x)) for x in os.listdir(path)]
-#     else:
-# 		d['t'] = "f"
-# 		d["m"] = time.ctime(os.path.getmtime(path))
-#     return d
-#
-# # applications =  brotli.compress(json.dumps(path_to_dict('/Applications/')))
-# user = fastlz.compress(json.dumps(path_to_dict("/Users/rafalstapinski/")))
-#
-# url = "http://localhost:8080/structure/new"
-#
-# f = {"structure": ("structure.lz", user)}
-#
-# r = requests.post(url, files=f)
-#
+def path_to_dict(path):
+	d = {"name": path, "mtime": os.path.getmtime(path)}
+	if os.path.isdir(path):
+		d["type"] = "directory"
+		d["children"] = [path_to_dict(os.path.join(path,x)) for x in os.listdir(path)]
+	else:
+		d["md5"] = md5(path)
+		d["type"] = "file"
+	return d
 
 def write(payload, status):
     return json.dumps({"payload": payload, "status": status})
@@ -42,26 +38,24 @@ def new_request(request):
     web.header("Access-Control-Allow-Origin", "*")
 	# web.header("charset", "utf-8")
 
-class backup_begin:
+class backup_scan:
 	def POST(self):
 		new_request(self)
+
+		print "starting backup scan"
 
 		backup_structure = []
 
 		for d in conf.backup_dirs:
-			#backup_structure.append(path_to_dict(config["backup_dirs"][d]))
-			print d
+			backup_structure.append(path_to_dict(d))
+
+		requests.post("%s/user/update" % conf.server_ip, data = {"user_hash": conf.user_hash, "structure": json.dumps(backup_structure)})
 
 urls = (
-	"/backup/begin", "backup_begin"
+	"/backup/scan", "backup_scan"
 )
 
-
-
 if __name__ == "__main__":
-
-	path = os.path.dirname(os.path.realpath(__file__))
-	logging.basicConfig(filename="default.log", level=logging.DEBUG)
 
 	try:
 		user_hash = conf.user_hash
