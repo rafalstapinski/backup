@@ -9,6 +9,7 @@ import logging
 import random
 from config import conf
 import hashlib
+import mimetypes
 
 def md5(fname):
     hash_md5 = hashlib.md5()
@@ -51,8 +52,30 @@ class backup_scan:
 
 		requests.post("%s/user/update" % conf.server_ip, data = {"user_hash": conf.user_hash, "structure": json.dumps(backup_structure)})
 
+class backup_send:
+	def POST(self):
+		new_request(self)
+
+		data = web.input()
+
+		try:
+			filename = data["filename"]
+			checksum = data["checksum"] # to make sure its from actual backup agent not fishing for files
+		except KeyError:
+			return write({"error": "No filename or checksum provided. "}, 400)
+
+		print data["filename"], data["checksum"]
+
+		if md5(data["filename"]) == data["checksum"]:
+			requests.post("%s/user/upload" % conf.server_ip, files = {"myfile": open(data["filename"], "rb")}, data={"user_hash": conf.user_hash, "checksum": data["checksum"]})
+			return write({"message": "File will be posted to server. "}, 200)
+		else:
+			return write({"error": "Checksum was incorrect, no auth. "}, 403)
+
+
 urls = (
-	"/backup/scan", "backup_scan"
+	"/backup/scan", "backup_scan",
+	"/backup/send", "backup_send"
 )
 
 if __name__ == "__main__":
