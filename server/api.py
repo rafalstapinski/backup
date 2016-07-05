@@ -21,7 +21,7 @@ def new_request(request):
 	# web.header("charset", "utf-8")
 
 def call_backup(agent_ip):
-	r = requests.post("%s/backup/scan" % agent_ip)
+	r = requests.post("s/%s/backup/scan" % agent_ip)
 
 def start_backup(tba, tbd, agent_ip, user_hash):
 
@@ -30,7 +30,7 @@ def start_backup(tba, tbd, agent_ip, user_hash):
 	print agent_ip
 
 	for filename in tba:
-		r = requests.post("%s/backup/send" % agent_ip, data={"filename": filename, "checksum": tba[filename][1]})
+		r = requests.post("s/%s/backup/send" % agent_ip, data={"filename": filename, "checksum": tba[filename][1]})
 		print r.json()
 
 def get_files(structure, files):
@@ -46,7 +46,7 @@ def get_files(structure, files):
 
 def write_file(user_hash, checksum, s):
 
-	f = open("%s/files/%s" % (user_hash, checksum), "w")
+	f = open("s/%s/files/%s" % (user_hash, checksum), "w")
 	f.write(s["myfile"].file.read())
 	f.close()
 
@@ -87,13 +87,14 @@ class user_register:
 		except KeyError:
 			return write({"error": "User hash or agent ip not provided. "}, 400)
 
-		if os.path.isdir("%s/%s" % (conf.path, user_hash)):
+		if os.path.isdir("s/%s/%s" % (conf.path, user_hash)):
 			pass
 			# probably update agent ip anyway
 		else:
 			print "create"
-			os.mkdir("%s/%s" % (conf.path, user_hash))
-			f = open("%s/%s/user.json" % (conf.path, user_hash), "w")
+			os.mkdir("s/%s/%s" % (conf.path, user_hash))
+			os.mkdir("s/%s/%s/files" % (conf.path, user_hash))
+			f = open("s/%s/%s/user.json" % (conf.path, user_hash), "w")
 			user = {"agent_ip": data["agent_ip"]}
 			f.write(json.dumps(user))
 			f.close()
@@ -113,14 +114,14 @@ class user_update:
 		except KeyError:
 			return write({"error": "User hash or structure not provided. "}, 400)
 
-		if os.path.isdir("%s/%s" % (conf.path, data["user_hash"])):
+		if os.path.isdir("s/%s/%s" % (conf.path, data["user_hash"])):
 
 			try:
-				f = open("%s/%s/structure.json" % (conf.path, data["user_hash"]), "r")
+				f = open("s/%s/%s/structure.json" % (conf.path, data["user_hash"]), "r")
 				old_structure = json.loads(f.read())
 				f.close()
 
-				f = open("%s/%s/user.json" % (conf.path, data["user_hash"]), "r")
+				f = open("s/%s/%s/user.json" % (conf.path, data["user_hash"]), "r")
 				user = json.loads(f.read())
 				f.close()
 
@@ -151,17 +152,15 @@ class user_update:
 				return #write
 
 			except IOError:
-				f = open("%s/%s/structure.json" % (conf.path, data["user_hash"]), "w")
+				f = open("s/%s/%s/structure.json" % (conf.path, data["user_hash"]), "w")
 				f.write(data["structure"])
 				f.close()
 
-				f = open("%s/%s/user.json" % (conf.path, data["user_hash"]), "r")
+				f = open("s/%s/%s/user.json" % (conf.path, data["user_hash"]), "r")
 				agent_ip = json.loads(f.read())["agent_ip"]
 				f.close()
 
 				Process(target=start_backup, args=(get_files(json.loads(data["structure"]), {}), [], agent_ip, data["user_hash"])).start()
-
-
 
 		else:
 			return write({"error": "User not registered. "}, 403)
@@ -177,8 +176,8 @@ class user_new:
 		except KeyError:
 			return write({"error": "User hash or structure not provided. "}, 400)
 
-		if os.path.isdir("%s/%s" % (conf.path, data["user_hash"])):
-			f = open("%s/%s/structure.json" % (conf.path, data["user_hash"]))
+		if os.path.isdir("s/%s/%s" % (conf.path, data["user_hash"])):
+			f = open("s/%s/%s/structure.json" % (conf.path, data["user_hash"]))
 			f.write(data["structure"])
 			f.close()
 		else:
